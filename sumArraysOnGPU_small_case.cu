@@ -124,6 +124,5 @@ int main(int argc, char **argv){
    cudaFree(d_A);
    cudaFree(d_B);
    cudaFree(d_C);
-
    return(0);
 }

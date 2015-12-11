@@ -5,13 +5,6 @@
 #include <stdio.h>
 #include "common.h"
 
-inline double cpuSecond()
-{
-    struct timeval tp;
-    //struct timezone tzp;
-    int i = gettimeofday(&tp, NULL);
-    return ((double)tp.tv_sec + (double)tp.tv_usec * 1.e-6);
-}
 
 
 __global__ void checkIndex(void){

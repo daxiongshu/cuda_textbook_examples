@@ -1,8 +1,9 @@
+#include <cuda_runtime.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <stdio.h>
-
+#include "common.h"
 __global__ void checkIndex(void){
    printf("threadIdx:(%d,%d,%d) blockIdx:(%d,%d,%d) blockDim:(%d,%d,%d) "
         "gridDim: (%d,%d,%d)\n", threadIdx.x,threadIdx.y,threadIdx.z,
@@ -12,7 +13,23 @@ __global__ void checkIndex(void){
 
 }
 
+void checkResult(float *hostRef, float *gpuRef, const int N){
+   
+   double epsilon= 1.0E-8;
+   bool match = 1;
+   for(int i=0;i<N;i++){
+      if (abs(hostRef[i]-gpuRef[i])>epsilon){
+         match=0;
+         printf("Arrays don't match!\n");
+         printf("host %5.2f gpu %5.2f at current %d\n",hostRef[i],gpuRef[i],i);
+         break;
+      }
+   }
+   if (match) printf("Arrays match. \n\n");
+}
+
 void sumArraysOnHost(float *A, float *B, float *C, const int N){
+   // CPU version of the kernel
    for(int idx=0; idx<N;idx++){
       C[idx]=A[idx]+B[idx];
    }
@@ -21,9 +38,13 @@ void sumArraysOnHost(float *A, float *B, float *C, const int N){
 
 void initialData(float *ip, int size){
    time_t t;
-   srand((unsigned int) time(&t));
+   srand((unsigned int) time(&t)); 
+   // initialize random number with seed of time
+   // time(&t) <==> t=time(NULL); assign the current time to t
+
+
    for (int i=0; i<size; i++){
-      ip[i] = (float) ( rand() & 0xFF )/10.0f;
+      ip[i] = (float) ( rand() & 0xFF )/10.0f; // rand() returns a random number between 0 and RAND_MAX
    }
 }
 
@@ -45,6 +66,9 @@ int main(int argc, char **argv){
 
    /*******************CPU part********************/
 
+   
+
+
    /*******************GPU part********************/
    dim3 block(3);
    dim3 grid((nElem+block.x-1)/block.x); // how the grid is calculated?
@@ -61,8 +85,8 @@ int main(int argc, char **argv){
    cudaMalloc((float**)&d_B, nBytes);
    cudaMalloc((float**)&d_C, nBytes);
 
-   cudaMemcpy(d_A, h_A, nBytes, cudaMemcpyHostToDevice);
-   cudaMemcpy(d_B, h_B, nBytes, cudaMemcpyHostToDevice);
+   CHECK(cudaMemcpy(d_A, h_A, nBytes, cudaMemcpyHostToDevice));
+   CHECK(cudaMemcpy(d_B, h_B, nBytes, cudaMemcpyHostToDevice));
 
    //cudaMemcpy(gpuRef, d_C, nBytes, cudaMemcpyDeviceToHost);
 

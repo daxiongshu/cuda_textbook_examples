@@ -16,26 +16,30 @@ __global__ void checkIndex(void){
 
 }
 
-__global__ void sumArraysOnGPU(float *A, float *B, float *C)
+__global__ void sumArraysOnGPU(float *A, float *B, float *C, const int N)
 {  
    // why no boundry check?
-   int i=threadIdx.x;
-   C[i]=A[i]+B[i];
+   int i=threadIdx.x+blockIdx.x*blockDim.x;
+   if (i<N)
+      C[i]=A[i]+B[i];
 
 }
-void checkResult(float *hostRef, float *gpuRef, const int N){
+int checkResult(float *hostRef, float *gpuRef, const int N){
    
    double epsilon= 1.0E-8;
    bool match = 1;
+   int error=-1;
    for(int i=0;i<N;i++){
       if (abs(hostRef[i]-gpuRef[i])>epsilon){
          match=0;
+         error=i;
          printf("Arrays don't match!\n");
          printf("host %5.2f gpu %5.2f at current %d\n",hostRef[i],gpuRef[i],i);
          break;
       }
    }
    if (match) printf("Arrays match. \n\n");
+   return error;
 }
 
 void sumArraysOnHost(float *A, float *B, float *C, const int N){
@@ -62,7 +66,7 @@ void initialData(float *ip, int size){
 int main(int argc, char **argv){
    printf("%s Starting ...\n",argv[0]);
 
-   int nElem = 320;//1024;
+   int nElem = 32*1e3;//1024;
    printf("Vector size is %d\n",nElem);
 
    // allocate memory
@@ -81,7 +85,7 @@ int main(int argc, char **argv){
    initialData(h_A,nElem);
    initialData(h_B,nElem);
    memset(h_C,0,nBytes);
-   memset(gpuRef,0,nBytes);
+   memset(gpuRef,-1,nBytes);
 
    cudaEvent_t start, stop;
    cudaEventCreate(&start);
@@ -109,7 +113,7 @@ int main(int argc, char **argv){
    int dev=0;
    cudaSetDevice(dev); // use the device_id=0 GPU;
 
-   dim3 block(nElem);
+   dim3 block(1024);
    dim3 grid((nElem+block.x-1)/block.x); // how the grid is calculated?
 
    // understand index
@@ -127,15 +131,16 @@ int main(int argc, char **argv){
    float beforesync,gpumilliseconds,gpumillisecondsbeforesync;
    iStart=cpuSecond();
    cudaEventRecord(start);
-   sumArraysOnGPU<<<grid,block>>>(d_A, d_B, d_C);
+   sumArraysOnGPU<<<grid,block>>>(d_A, d_B, d_C,nElem);
    cudaEventRecord(stop);
-   //cudaEventSynchronize(stop); // the later cudaDeviceSynchronize achieves the same 
+   cudaEventSynchronize(stop); // the later cudaDeviceSynchronize doesn't achieve the same 
    cudaEventElapsedTime(&gpumillisecondsbeforesync, start, stop);
 
    beforesync=cpuSecond()-iStart;
    CHECK(cudaDeviceSynchronize());
    iElaps=cpuSecond()-iStart;
-   //cudaEventRecord(stop);
+   cudaEventRecord(stop);
+   cudaEventSynchronize(stop);
    cudaEventElapsedTime(&gpumilliseconds, start, stop);   
 
    printf("sumArraysOnGPU Time Elapsed %f before sync %f\n\n",iElaps,beforesync);
@@ -147,8 +152,8 @@ int main(int argc, char **argv){
    printf("Kernel configuration: (%d,%d,%d),(%d,%d,%d)\n",grid.x,grid.y,grid.z,block.x,block.y,block.z);
    cudaMemcpy(gpuRef, d_C, nBytes, cudaMemcpyDeviceToHost);
 
-   checkResult(h_C,gpuRef,nElem);
-
+   int error=checkResult(h_C,gpuRef,nElem);
+   //printf("%f+%f=%f\n",h_A[error],h_B[error],h_A[error]+h_B[error]);
 
 
 

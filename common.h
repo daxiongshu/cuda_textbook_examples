@@ -1,3 +1,4 @@
+#include <sys/time.h>
 #ifndef _COMMON_H
 #define _COMMON_H
 #define CHECK(call)                                                      \
@@ -10,4 +11,11 @@
       exit(1);                                                           \
    }                                                                     \
 }   
+inline double cpuSecond()
+{
+    struct timeval tp;
+    //struct timezone tzp;
+    int i = gettimeofday(&tp, NULL);
+    return ((double)tp.tv_sec + (double)tp.tv_usec * 1.e-6);
+}
 #endif

@@ -4,6 +4,16 @@
 #include <time.h>
 #include <stdio.h>
 #include "common.h"
+
+inline double cpuSecond()
+{
+    struct timeval tp;
+    //struct timezone tzp;
+    int i = gettimeofday(&tp, NULL);
+    return ((double)tp.tv_sec + (double)tp.tv_usec * 1.e-6);
+}
+
+
 __global__ void checkIndex(void){
    printf("threadIdx:(%d,%d,%d) blockIdx:(%d,%d,%d) blockDim:(%d,%d,%d) "
         "gridDim: (%d,%d,%d)\n", threadIdx.x,threadIdx.y,threadIdx.z,
@@ -59,7 +69,7 @@ void initialData(float *ip, int size){
 int main(int argc, char **argv){
    printf("%s Starting ...\n",argv[0]);
 
-   int nElem = 32;//1024;
+   int nElem = 320;//1024;
    printf("Vector size is %d\n",nElem);
 
    // allocate memory
@@ -80,8 +90,11 @@ int main(int argc, char **argv){
    memset(h_C,0,nBytes);
    memset(gpuRef,0,nBytes);
 
+   double iStart,iElaps;
+   iStart=cpuSecond();
    sumArraysOnHost(h_A,h_B,h_C,nElem);
-
+   iElaps=cpuSecond()-iStart;
+   printf("sumArraysOnHost Time Elapsed %f\n",iElaps);
    /*******************CPU part********************/
 
    
@@ -106,7 +119,12 @@ int main(int argc, char **argv){
    CHECK(cudaMemcpy(d_A, h_A, nBytes, cudaMemcpyHostToDevice));
    CHECK(cudaMemcpy(d_B, h_B, nBytes, cudaMemcpyHostToDevice));
 
+   iStart=cpuSecond();
    sumArraysOnGPU<<<grid,block>>>(d_A, d_B, d_C);
+   CHECK(cudaDeviceSynchronize());
+   iElaps=cpuSecond()-iStart;
+   printf("sumArraysOnGPU Time Elapsed %f\n",iElaps);
+
    printf("Kernel configuration: (%d,%d,%d),(%d,%d,%d)\n",grid.x,grid.y,grid.z,block.x,block.y,block.z);
    cudaMemcpy(gpuRef, d_C, nBytes, cudaMemcpyDeviceToHost);
 

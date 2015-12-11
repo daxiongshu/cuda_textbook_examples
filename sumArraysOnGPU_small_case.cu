@@ -83,10 +83,22 @@ int main(int argc, char **argv){
    memset(h_C,0,nBytes);
    memset(gpuRef,0,nBytes);
 
+   cudaEvent_t start, stop;
+   cudaEventCreate(&start);
+   cudaEventCreate(&stop);
+   float cpumilliseconds = 0;
+
    double iStart,iElaps;
    iStart=cpuSecond();
+   cudaEventRecord(start);
+
    sumArraysOnHost(h_A,h_B,h_C,nElem);
+
+   cudaEventRecord(stop);
+   cudaEventElapsedTime(&cpumilliseconds, start, stop);
+
    iElaps=cpuSecond()-iStart;
+   printf("\nCPU timer\n");
    printf("sumArraysOnHost Time Elapsed %f\n",iElaps);
    /*******************CPU part********************/
 
@@ -112,11 +124,25 @@ int main(int argc, char **argv){
    CHECK(cudaMemcpy(d_A, h_A, nBytes, cudaMemcpyHostToDevice));
    CHECK(cudaMemcpy(d_B, h_B, nBytes, cudaMemcpyHostToDevice));
 
+   float beforesync,gpumilliseconds,gpumillisecondsbeforesync;
    iStart=cpuSecond();
+   cudaEventRecord(start);
    sumArraysOnGPU<<<grid,block>>>(d_A, d_B, d_C);
+   cudaEventRecord(stop);
+   //cudaEventSynchronize(stop); // the later cudaDeviceSynchronize achieves the same 
+   cudaEventElapsedTime(&gpumillisecondsbeforesync, start, stop);
+
+   beforesync=cpuSecond()-iStart;
    CHECK(cudaDeviceSynchronize());
    iElaps=cpuSecond()-iStart;
-   printf("sumArraysOnGPU Time Elapsed %f\n",iElaps);
+   //cudaEventRecord(stop);
+   cudaEventElapsedTime(&gpumilliseconds, start, stop);   
+
+   printf("sumArraysOnGPU Time Elapsed %f before sync %f\n\n",iElaps,beforesync);
+
+   printf("\nGPU timer\n");
+   printf("sumArraysOnHost Time Elapsed %f\n",cpumilliseconds);
+   printf("sumArraysOnGPU Time Elapsed %f before sync %f\n\n",gpumilliseconds,gpumillisecondsbeforesync);
 
    printf("Kernel configuration: (%d,%d,%d),(%d,%d,%d)\n",grid.x,grid.y,grid.z,block.x,block.y,block.z);
    cudaMemcpy(gpuRef, d_C, nBytes, cudaMemcpyDeviceToHost);

@@ -36,14 +36,13 @@ void initialData(float *ip, int size){
 
 
 __global__ void sumMatrixOnGPU(float *A, float *B, float *C, const int nx, const int ny){
-   unsigned int ix_start = threadIdx.x*nx/blockDim.x;
-   unsigned int ix_stop = threadIdx.x*nx/blockDim.x+nx/blockDim.x;
-   unsigned int iy = blockIdx.y;
+   unsigned int ix = threadIdx.x+blockDim.x*blockIdx.x;
    unsigned int idx;
-   if (ix_stop>=nx) ix_stop=nx;
-   for (unsigned int i=ix_start;i<ix_stop;i++){
-          idx=iy*nx+i;
+   if (ix<nx){ 
+       for (unsigned int i=0;i<ny;i++){
+          idx=i*nx+ix;
           C[idx]=A[idx]+B[idx];
+       }
    }
 }
 
@@ -108,10 +107,10 @@ int main(int argc, char **argv){
    cudaMemcpy(d_A,h_A,nBytes,cudaMemcpyHostToDevice);
    cudaMemcpy(d_B,h_B,nBytes,cudaMemcpyHostToDevice);  
 
-   int dimx=1024;
+   int dimx=32;
    int dimy=1;
    dim3 block(dimx,dimy);
-   dim3 grid(1,ny);
+   dim3 grid((nx+block.x-1)/block.x,1);
    
    iStart = cpuSecond();
    sumMatrixOnGPU<<<grid,block>>>(d_A, d_B,d_C,nx,ny);   
